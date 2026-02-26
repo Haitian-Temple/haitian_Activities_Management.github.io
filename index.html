@@ -2,10 +2,11 @@
 <html lang="zh-TW">
 <head>
     <meta charset="UTF-8">
+    <!-- 關鍵設定：讓頁面在各種裝置上滿版且正確縮放 -->
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=3.0, user-scalable=yes">
-    <title>服務頁面</title>
+    <title>主頁面</title>
     <style>
-        /* 極簡重置與基礎樣式，確保滿版與效能 */
+        /* 全域樣式：徹底消除邊距，確保滿版 */
         * {
             margin: 0;
             padding: 0;
@@ -13,187 +14,134 @@
         }
         html, body {
             width: 100%;
-            min-height: 100vh;
-            background-color: #f5f5f5; /* 背景色，載入時不刺眼 */
-            font-family: system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', sans-serif;
-            /* 使用系統字體確保各平台顯示一致且快速 */
+            height: 100%;
+            background-color: #f0f0f0; /* 背景色，當嵌入內容載入前顯示 */
+            overflow: hidden; /* 防止頁面本身出現捲軸，捲軸由 iframe 內部處理 */
         }
-        body {
+        /* 嵌入容器：使用 flex 確保 iframe 能填滿剩餘高度，避免版面問題 */
+        .embed-container {
             display: flex;
             flex-direction: column;
-            /* 針對長輩：預設字體放大，並使用相對單位 */
-            font-size: 18px; /* 基礎字體放大 */
-            line-height: 1.5;
-            color: #222; /* 深色文字，對比清晰 */
-        }
-
-        /* 頂部簡單說明列 (可選，讓長輩知道這是什麼) */
-        .info-bar {
-            padding: 12px 16px;
-            background-color: #e9e9e9;
-            text-align: center;
-            border-bottom: 1px solid #ccc;
-            font-weight: 500;
-            letter-spacing: 0.5px;
-            flex-shrink: 0; /* 防止被壓縮 */
-        }
-        .info-bar span {
-            /* 若有需要特別強調的資訊，可在此設定 */
-        }
-
-        /* iframe 容器：佔滿剩餘所有空間 */
-        .iframe-container {
-            flex: 1 1 auto; /* 成長、收縮、基準自動 */
-            width: 100%;
-            position: relative; /* 作為載入中提示的錨點 */
-            background-color: #ffffff;
-        }
-
-        /* iframe 本身：滿版、無邊框 */
-        #embedded-page {
-            display: block;
             width: 100%;
             height: 100%;
-            border: none;
-            /* 確保在舊瀏覽器也有滿版 */
-            position: absolute;
-            top: 0;
-            left: 0;
         }
-
-        /* 簡單的載入中提示 (提升體驗，即使載入很快也不突兀) */
-        .loading-message {
-            position: absolute;
+        /* 可選的簡潔標題列，方便長輩識別 */
+        .simple-header {
+            padding: 12px 15px;
+            background-color: #2c3e50;
+            color: white;
+            font-size: 1.5rem;  /* 相對單位，根據裝置調整，字體夠大 */
+            font-weight: bold;
+            text-align: center;
+            letter-spacing: 1px;
+            flex-shrink: 0; /* 防止標題列被壓縮 */
+            -webkit-user-select: none; /* 防止選取 */
+            user-select: none;
+        }
+        /* iframe 設定：滿版填滿剩餘空間 */
+        .embed-container iframe {
+            width: 100%;
+            flex: 1;  /* 佔據所有剩餘空間 */
+            border: none; /* 移除邊框 */
+            background-color: white; /* 與內部背景一致，避免閃爍 */
+        }
+        /* 針對電腦版或橫向平板，可設定最大寬度保持舒適閱讀 (非滿版但維持比例) */
+        @media (min-width: 1024px) {
+            body {
+                display: flex;
+                justify-content: center;
+                background-color: #e0e0e0; /* 外圍背景色 */
+            }
+            .embed-container {
+                max-width: 1200px; /* 電腦版最大寬度，避免過寬不舒適 */
+                height: 100%;
+                box-shadow: 0 0 20px rgba(0,0,0,0.1);
+            }
+        }
+        /* 簡單的載入提示，直到 iframe 載入完成 */
+        .loading-tip {
+            position: fixed;
             top: 50%;
             left: 50%;
             transform: translate(-50%, -50%);
-            color: #666;
             font-size: 1.2rem;
-            background-color: rgba(255,255,255,0.9);
+            color: #555;
+            background: rgba(255,255,255,0.9);
             padding: 10px 20px;
             border-radius: 30px;
-            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+            z-index: 10;
             pointer-events: none; /* 讓點擊穿透到 iframe */
-            transition: opacity 0.2s ease;
-            z-index: 1;
-        }
-        /* iframe 載入完成後隱藏提示 (靠JS) */
-        .iframe-container.loaded .loading-message {
             opacity: 0;
-            visibility: hidden;
+            transition: opacity 0.3s;
         }
-
-        /* --- 防護措施 (禁用複製/選取/右鍵) --- */
-        body {
-            /* 禁止文字選取 */
-            -webkit-user-select: none; /* Chrome/Safari/Edge */
-            -moz-user-select: none;    /* Firefox */
-            -ms-user-select: none;     /* IE/Edge */
-            user-select: none;
-        }
-        /* 允許在 iframe 內選取，因為那是另一個文件的內容 */
-        iframe {
-            pointer-events: auto; /* 確保 iframe 可以正常互動 */
-        }
-
-        /* 針對長輩：允許放大縮小 (已透過 meta 的 maximum-scale=3.0 允許適度縮放) */
-        /* 同時確保字體夠大，減少縮放需求 */
-
-        /* 跨平台微調 */
-        @media (max-width: 600px) {
-            /* 手機上字體可以稍微再大一點點，但維持版面 */
-            body { font-size: 18px; }
-            .info-bar { padding: 10px 12px; font-size: 16px; }
-        }
-        @media (min-width: 1200px) {
-            /* 大螢幕字體可維持不變或稍微調整 */
-            body { font-size: 20px; }
-        }
-
-        /* 針對LINE或其他應用程式的瀏覽器，確保滿版無外距 */
-        body, html {
-            margin: 0 !important;
-            padding: 0 !important;
+        .loading-tip.show {
+            opacity: 1;
         }
     </style>
 </head>
 <body>
-    <!-- 可選的頂部資訊列，可自訂文字，或移除 -->
-    <div class="info-bar" aria-label="頁面說明">
-        <span>🔍 歡迎使用服務 (若畫面空白請稍候)</span>
+    <div class="embed-container">
+        <!-- 簡單標題列，字體大且清楚，長輩一目了然 -->
+        <div class="simple-header">📋 主要服務頁面</div>
+        <!-- 嵌入您的第一個 Google Apps Script 網頁 -->
+        <iframe 
+            id="mainFrame"
+            src="https://script.google.com/macros/s/AKfycbwH0e1UNZ7ZJH34Onfdq-GWrWlhh7vKj9LO-l-HFAMxinvrynb3CBpUgaVnNsMdDbY/exec"
+            title="主要服務內容"
+            loading="lazy" <!-- 啟用延遲載入，提升效能 -->
+            importance="high" <!-- 高優先級載入 -->
+            sandbox="allow-scripts allow-forms allow-same-origin allow-popups allow-modals allow-downloads" <!-- 安全限制，但仍允許必要功能，可依實際需求調整 -->
+            referrerpolicy="strict-origin-when-cross-origin"
+            >
+        </iframe>
     </div>
-
-    <!-- iframe 容器 -->
-    <div class="iframe-container" id="iframeContainer">
-        <!-- 載入中提示 (將在載入後隱藏) -->
-        <div class="loading-message" id="loadingMessage">載入中，請稍後⋯⋯</div>
-        <!-- 這裡會嵌入您的目標網頁 -->
-        <iframe id="embedded-page" src="about:blank" title="嵌入式服務頁面" sandbox="allow-scripts allow-forms allow-same-origin allow-popups allow-modals allow-downloads allow-pointer-lock"></iframe>
-        <!-- 說明：sandbox 限制是為了安全，請根據您的目標網頁需求調整權限。若需要完整功能，可移除 sandbox 屬性，但會降低安全性。 -->
-    </div>
+    
+    <!-- 簡單的載入提示，載入後消失 (用 JavaScript 控制) -->
+    <div class="loading-tip" id="loadingTip">載入中，請稍後...</div>
 
     <script>
         (function() {
             "use strict";
+            
+            // 1. 防止複製、剪下、貼上等操作 (符合資安直覺，但長輩仍可正常瀏覽)
+            document.addEventListener('copy', (e) => e.preventDefault());
+            document.addEventListener('cut', (e) => e.preventDefault());
+            document.addEventListener('paste', (e) => e.preventDefault());
+            // 防止選取文字 (可選，為了避免誤觸複製，但可能影響閱讀選取，長輩較少使用，可註解)
+            // document.addEventListener('selectstart', (e) => e.preventDefault());
 
-            // --- 設定區：請在此填入您的實際網址 ---
-            // 注意：基於資安，這個 HTML 檔本身無法隱藏，但您可以將目標網址
-            // 改為您自己的後端代理頁面，藉此隱藏真實的 Google Apps Script 網址。
-            // 以下為範例網址，請務必替換！
-            const TARGET_URL = "https://script.google.com/macros/s/AKfycbwH0e1UNZ7ZJH34Onfdq-GWrWlhh7vKj9LO-l-HFAMxinvrynb3CBpUgaVnNsMdDbY/exec"; // 第一個網址
-            // const TARGET_URL = "https://script.google.com/macros/s/AKfycbwH0e1UNZ7ZJH34Onfdq-GWrWlhh7vKj9LO-l-HFAMxinvrynb3CBpUgaVnNsMdDbY/exec?p=customer"; // 第二個網址 (可自行切換)
-            // --- 設定結束 ---
+            // 2. 防止右鍵選單 (避免查看原始碼或複製)
+            document.addEventListener('contextmenu', (e) => e.preventDefault());
 
-            const iframe = document.getElementById('embedded-page');
-            const container = document.getElementById('iframeContainer');
-
-            // 設定 iframe 來源
-            if (iframe) {
-                iframe.src = TARGET_URL;
-
-                // 監聽 iframe 載入完成事件，隱藏 loading 訊息
-                iframe.onload = function() {
-                    // 加上一點延遲讓過渡更平滑
+            // 3. 載入提示管理：當 iframe 載入完成後淡出提示
+            const iframe = document.getElementById('mainFrame');
+            const loadingTip = document.getElementById('loadingTip');
+            
+            if (iframe && loadingTip) {
+                // 顯示提示
+                loadingTip.classList.add('show');
+                
+                // 監聽 iframe 載入事件
+                iframe.addEventListener('load', function() {
+                    // 稍微延遲一下確保內容呈現
                     setTimeout(() => {
-                        container.classList.add('loaded');
-                    }, 150);
-                };
-
-                // 若載入失敗，可以顯示錯誤訊息 (選擇性)
-                iframe.onerror = function() {
-                    const loadingMsg = document.getElementById('loadingMessage');
-                    if (loadingMsg) {
-                        loadingMsg.textContent = '載入失敗，請檢查網路或聯繫管理員';
-                        loadingMsg.style.backgroundColor = '#ffdddd';
-                        loadingMsg.style.color = '#b30000';
-                    }
-                };
+                        loadingTip.classList.remove('show');
+                    }, 300);
+                });
+                
+                // 錯誤處理：如果載入失敗，顯示友善訊息
+                iframe.addEventListener('error', function() {
+                    loadingTip.textContent = '頁面載入失敗，請檢查網路或聯繫管理員';
+                    loadingTip.style.color = '#c0392b';
+                });
             }
 
-            // --- 防止複製、右鍵選單 (輔助防護) ---
-            document.addEventListener('contextmenu', function(e) {
-                e.preventDefault(); // 禁止右鍵選單
-            });
-
-            // 針對鍵盤複製快捷鍵 (Ctrl+C, Command+C) 可以額外監聽，但可能影響體驗且無法完全阻擋，故不強制。
-            // 主要依靠 CSS user-select 防止選取，降低複製意圖。
-
-            // --- 效能最佳化：預先連接 (可選) ---
-            // 從目標網址取得來源，預先建立連線稍微加快載入
-            try {
-                const url = new URL(TARGET_URL);
-                const origin = url.origin;
-                const link = document.createElement('link');
-                link.rel = 'preconnect';
-                link.href = origin;
-                document.head.appendChild(link);
-            } catch (e) {
-                // 若網址無效則忽略
-            }
-
+            // 4. 確保在 Line 或其他 App 內瀏覽器也能正確縮放 (可選：但已經在 meta 設定)
+            // 5. 雙擊縮放維持啟用 (對長輩友善)，但若您仍想限制縮放，可調整 meta 的 maximum-scale 為 1.0
+            //   目前設定為 3.0，允許適度放大，長輩看得更清楚。
+            
+            // 6. 記憶體優化：若頁面隱藏，可暫停 iframe 活動? 此處不實作以免複雜。
         })();
     </script>
-
-    <!-- 附加說明：為確保絕對滿版且無任何滾軸干擾，已經過樣式確保。 -->
 </body>
 </html>
